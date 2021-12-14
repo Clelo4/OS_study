@@ -13,12 +13,12 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <string.h>
 
-#define SERVER_PORT 8081
+#define SERVER_PORT 8082
 #define err_sys(str)                                        \
   {                                                         \
     __typeof__(errno) save_errno = errno;                   \
@@ -60,7 +60,7 @@ void close_request(int);
 void response(int connfd, int status_code, const char *reason_phrase,
               const void *, size_t);
 void parse_method(enum http_method *method, const char *buff, size_t n);
-void parse_version(struct http_version *, const char *buff, size_t n);
+void parse_version(struct http_version *, char *buff, size_t n);
 
 void server(u_int16_t port) {
   int serverfd, connfd;
@@ -106,12 +106,12 @@ void accept_request(int connfd) {
     response(connfd, 405, "Method Not Allowed", 0, 0);
     return;
   }
-  // if (req_buf->version.major != 1 || req_buf->version.major != 1) {
-  //   return response(connfd, 505, "HTTP Version Not Supported");
-  //   return;
-  // }
+  if (req_buf->version.major == -1 || req_buf->version.major == -1) {
+    return response(connfd, 505, "HTTP Version Not Supported", 0, 0);
+    return;
+  }
   const char *mesg = "Hello world!";
-  response(connfd, 200, "Ok", mesg, sizeof(mesg));
+  response(connfd, 200, "Ok", mesg, strlen(mesg));
 }
 
 int read_request_line(int connfd, struct req_line *req_line) {
@@ -185,10 +185,19 @@ void response(int connfd, int status_code, const char *reason_phrase,
   send(connfd, send_buffer, send_num, 0);
   // send headers
   send_num = snprintf(send_buffer, sizeof(send_buffer),
-                      "content-type: application/json; charset=utf-8%s", CRLF);
+                      "Content-Type: text/html; charset=utf-8%s", CRLF);
   send(connfd, send_buffer, send_num, 0);
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "Content-Length:%ld%s",
+                      m_size, CRLF);
+  send(connfd, send_buffer, send_num, 0);
+
+  // 分割换行
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "%s", CRLF);
+  send(connfd, send_buffer, send_num, 0);
+
   // send body
-  send_num = snprintf(send_buffer, sizeof(send_buffer), "{}%s", CRLF);
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "%s%s",
+                      (const char *)message, CRLF);
   send(connfd, send_buffer, send_num, 0);
   // end
   send_num = snprintf(send_buffer, sizeof(send_buffer), "%s", CRLF);
@@ -219,10 +228,33 @@ void parse_method(enum http_method *method, const char *buff, size_t n) {
 unsupport:
   *method = OTHER;
 }
-void parse_version(struct http_version *version, const char *buff, size_t n) {
+void parse_version(struct http_version *version, char *buff, size_t n) {
   int size = 0;
+  int cnt = 0;
+  int end = 0;
   // find /
-  for (int i = 0; i < n; ++i) {
+  for (cnt = 0; cnt < n; ++cnt) {
+    if (buff[cnt] == '/') {
+      ++cnt;
+      break;
+    }
+  }
+  version->major = version->minor = -1;
+  for (end = cnt; end < n; ++end) {
+    // find major
+    if (buff[end] == '.') {
+      buff[end] = 0;
+      version->major = strtol(buff + cnt, (char **)NULL, 10);
+      buff[end] = '.';
+      cnt = end + 1;
+      break;
+    }
+  }
+  if (cnt < n) {
+    buff[n] = 0;
+    if (version->major != -1) {
+      version->minor = strtol(buff + cnt, (char **)NULL, 10);
+    }
   }
 }
 
@@ -231,3 +263,4 @@ int main() {
   server(SERVER_PORT);
   return 0;
 }
+
