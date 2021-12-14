@@ -1,5 +1,13 @@
 {
-  "editor.tabSize": 4,
+  "editor.tabSize": 2,
   "editor.insertSpaces": true,
-  "editor.detectIndentation": false
+  "editor.detectIndentation": false,
+  "files.associations": {
+    "__threading_support": "c",
+    "cerrno": "c",
+    "locale": "c",
+    "cstdlib": "c",
+    "sstream": "c"
+  },
+  "editor.formatOnSave": true,
 }
