@@ -1,6 +1,6 @@
 
 CFLAGS = -g --std=gnu99
-CC = clang
+CC = gcc
 
 all:
 	make server.out

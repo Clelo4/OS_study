@@ -16,23 +16,51 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <string.h>
 
-#define SERVER_PORT 8080
+#define SERVER_PORT 8081
 #define err_sys(str)                                        \
   {                                                         \
     __typeof__(errno) save_errno = errno;                   \
     fprintf(stderr, "%s: %s\n", str, strerror(save_errno)); \
     exit(save_errno);                                       \
   }
+int is_valid(char c) {
+  unsigned char _c = (unsigned char)c;
+  return (_c >= 33) && (_c <= 126);
+}
 
 #define BUFFSIZE 8192
-
+#define IS_OK 0
+#define IS_ERROR -1
+#define LF (u_char)'\n'
+#define CR (u_char)'\r'
+#define CRLF "\r\n"
+#define SP 0x20
+#define URI_LIMIT 1024
 char recv_buffer[BUFFSIZE];
 char send_buffer[BUFFSIZE];
+
+enum http_method { GET = 1, POST, OTHER };
+struct http_version {
+  int major;
+  int minor;
+};
+struct req_line {
+  enum http_method method;
+  char req_uri[URI_LIMIT];
+  struct http_version version;
+};
 
 void server(u_int16_t);
 void client_handler(int);
 void accept_request(int);
+int read_request_line(int, struct req_line *);
+void close_request(int);
+void response(int connfd, int status_code, const char *reason_phrase,
+              const void *, size_t);
+void parse_method(enum http_method *method, const char *buff, size_t n);
+void parse_version(struct http_version *, const char *buff, size_t n);
 
 void server(u_int16_t port) {
   int serverfd, connfd;
@@ -67,32 +95,139 @@ void server(u_int16_t port) {
 }
 
 void accept_request(int connfd) {
-  size_t recv_num;
-  shutdown(connfd, SHUT_RDWR);
-  // close(connfd);
-  return;
-again:
-  while ((recv_num =
-              recv(connfd, (void *)recv_buffer, sizeof(recv_buffer), 0)) > 0) {
-    // process
-    printf("%s", recv_buffer);
+  struct req_line *req_buf = calloc(0, sizeof(struct req_line));
+
+  // Read Request-Line
+  // Request-Line format = Method SP Request-URI SP HTTP-Version CRLF
+  if (IS_ERROR == read_request_line(connfd, req_buf)) {
+    return;
   }
-  if (recv_num == -1 && errno == EINTR)
-    goto again;
-  else if (recv_num == -1) {
-    err_sys("socket recv error");
+  if (req_buf->method != GET) {
+    response(connfd, 405, "Method Not Allowed", 0, 0);
+    return;
   }
-  // read end
-  // write to use
-  send_buffer[0] = 'A';
-  send(connfd, (const void *)send_buffer, 1, 0);
+  // if (req_buf->version.major != 1 || req_buf->version.major != 1) {
+  //   return response(connfd, 505, "HTTP Version Not Supported");
+  //   return;
+  // }
+  const char *mesg = "Hello world!";
+  response(connfd, 200, "Ok", mesg, sizeof(mesg));
+}
+
+int read_request_line(int connfd, struct req_line *req_line) {
+  unsigned char c = 0;
+  int ret = 0;
+  enum req_state { method = 0, url, version, done };
+  int recv_num = 0;
+
+  enum req_state state = method;
+  for (;;) {
+    if ((ret = recv(connfd, &c, 1, 0)) <= 0) {
+      goto ERROR;
+    }
+    switch (state) {
+      case method:
+        /* code */
+        if (is_valid(c)) {
+          recv_buffer[recv_num++] = c;
+        } else if (c == SP) {
+          parse_method(&req_line->method, recv_buffer, recv_num);
+          recv_num = 0;
+          ++state;
+        } else
+          goto ERROR;
+        break;
+      case url:
+        if (is_valid(c) && recv_num + 1 < URI_LIMIT) {
+          req_line->req_uri[recv_num++] = c;
+        } else if (c == SP) {
+          req_line->req_uri[recv_num] = 0;
+          recv_num = 0;
+          ++state;
+        } else
+          goto ERROR;
+        break;
+      case version:
+        if (is_valid(c)) {
+          recv_buffer[recv_num++] = c;
+        } else if (c == CR) {
+          parse_version(&req_line->version, recv_buffer, recv_num);
+          recv_num = 0;
+          ++state;
+        } else {
+          goto ERROR;
+        }
+        break;
+      case done:
+        if (c == LF)
+          goto DONE;
+        else
+          goto ERROR;
+        break;
+      default:
+        goto ERROR;
+        break;
+    }
+  }
+DONE:
+  return 0;
+ERROR:
+  fprintf(stderr, "state: %d\n", state);
+  response(connfd, 400, "Bad request", 0, 0);
+  return IS_ERROR;
+}
+
+void response(int connfd, int status_code, const char *reason_phrase,
+              const void *message, size_t m_size) {
+  int send_num = 0;
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "HTTP/1.1 %d %s%s",
+                      status_code, reason_phrase, CRLF);
+  send(connfd, send_buffer, send_num, 0);
+  // send headers
+  send_num = snprintf(send_buffer, sizeof(send_buffer),
+                      "content-type: application/json; charset=utf-8%s", CRLF);
+  send(connfd, send_buffer, send_num, 0);
+  // send body
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "{}%s", CRLF);
+  send(connfd, send_buffer, send_num, 0);
+  // end
+  send_num = snprintf(send_buffer, sizeof(send_buffer), "%s", CRLF);
+  send(connfd, send_buffer, send_num, 0);
   shutdown(connfd, SHUT_RDWR);
 }
 
+void parse_method(enum http_method *method, const char *buff, size_t n) {
+  unsigned char first_char = buff[0];
+  switch (first_char) {
+    case 'G':
+      if (strncasecmp("GET", (const char *)buff, 3) == 0) {
+        *method = GET;
+        return;
+      }
+      goto unsupport;
+      break;
+    case 'P':
+      if (strncasecmp("POST", (const char *)buff, 3) == 0) {
+        *method = POST;
+        return;
+      }
+      goto unsupport;
+      break;
+    default:
+      break;
+  }
+unsupport:
+  *method = OTHER;
+}
+void parse_version(struct http_version *version, const char *buff, size_t n) {
+  int size = 0;
+  // find /
+  for (int i = 0; i < n; ++i) {
+  }
+}
+
 int main() {
-  char a = '\r';
-  printf("%d\n", +a);
-  return 0;
+  // fprintf(stderr, "%d\n", strncasecmp("GET", "GET", 3));
   server(SERVER_PORT);
   return 0;
 }
