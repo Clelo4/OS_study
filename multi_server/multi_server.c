@@ -1,4 +1,13 @@
 /**
+ * @file multi_server.c
+ * @author Jack
+ * @mail chengjunjie.jack@gmail.com
+ * @date 2021-12-16
+ * @version 0.1
+ *
+ * @copyright Copyright (c) 2021
+ */
+/**
  * @file server.c
  * @author Jack
  * @mail chengjunjie.jack@gmail.com
@@ -8,10 +17,56 @@
  * @copyright Copyright (c) 2021
  */
 
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
 #include "server.h"
 
+#define SHARE_MEMORY_FILE_PATH \
+  "/Users/chengjunjie/code/OS_study/multi_server/share_mem.lock"
+#define FTOK_ID 7
+void *shm_address = 0;
+int global_shm_id = -1;
+
+struct share_statistics {
+  char title[20];
+  int requests;
+  int code_2xx;
+  int code_3xx;
+  int code_4xx;
+  int code_5xx;
+};
+
+void do_call(int connfd);
+
 void server(u_int16_t port) {
+  // 防止产生僵尸进程
+  struct sigaction action;
+  action.__sigaction_u.__sa_handler = SIG_IGN;
+  action.sa_flags = SA_NOCLDWAIT;
+  sigaction(SIGCHLD, &action, NULL);
+
+  // 创建XSI IPC共享存错
+  key_t shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
+  if (shm_key == -1)
+    err_sys(
+        "does not exist or if it cannot be accessed by the calling process");
+  int shm_id = shmget(shm_key, 8192, IPC_CREAT | IPC_EXCL | 0660);
+  if (shm_id == -1) err_sys("call shmget error");
+  shm_address = shmat(shm_id, 0, 0);
+  global_shm_id = shm_id;
+  fprintf(stderr, "shm_address: %p\n", shm_address);
+
+  // struct share_statistics
+  struct share_statistics ss;
+  strncpy((char *)&ss.title, "Server Statistics", 20);
+  ss.requests = ss.code_2xx = ss.code_3xx = ss.code_4xx = ss.code_5xx = 0;
+  memcpy(shm_address, &ss, sizeof(struct share_statistics));
+  shmdt(shm_address);
+
   int serverfd, connfd;
+  pid_t pid;
   int on = 1;
   socklen_t len;
   struct sockaddr_in serveraddr, clientaddr;
@@ -38,21 +93,47 @@ void server(u_int16_t port) {
       if (errno == EINTR) continue;
       err_sys("socket accept error");
     }
-    pthread_t pid;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&pid, (const pthread_attr_t *)&attr, accept_request,
-                   (void *)connfd);
-    pthread_attr_destroy(&attr);
+    if ((pid = fork()) > 0) {
+      fprintf(stderr, "process pid: %d\n", getpid());
+      close(connfd);
+    } else if (pid == 0) {
+      fprintf(stderr, "child pid: %d\n", getpid());
+      close(serverfd);
+      do_call(connfd);
+      close(connfd);
+      return;
+    } else {
+      err_sys("Fork error");
+    }
   }
 }
 
-void *accept_request(void *arg) {
-  int connfd = (long)arg;
+void do_call(int connfd) {
   struct req_line *req_buf = calloc(1, sizeof(struct req_line));
   char *recv_buffer = calloc(1, BUFFSIZE);
   char *send_buffer = calloc(1, BUFFSIZE);
+  struct share_statistics *share_address = 0;
+
+  key_t shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
+  if (shm_key == -1) {
+    fprintf(stderr,
+            "call ftok error: %s does not exist or if it cannot be accessed by "
+            "the calling process",
+            SHARE_MEMORY_FILE_PATH);
+    goto end;
+  }
+  int shm_id = shmget(shm_key, 0, IPC_CREAT | 0660);
+  if (shm_id == -1) {
+    fprintf(stderr, "do_call: call shmget error: %s\n", strerror(errno));
+    goto end;
+  }
+  share_address = (struct share_statistics *)shmat(shm_id, 0, 0);
+  if (share_address == 0) {
+    fprintf(stderr, "call shmat error: %s\n", strerror(errno));
+    goto end;
+  }
+  // print title
+  fprintf(stderr, "title: %s\n", share_address->title);
 
   // Read Request-Line
   // Request-Line format = Method SP Request-URI SP HTTP-Version CRLF
@@ -73,12 +154,13 @@ void *accept_request(void *arg) {
   // const char *mesg = "Hello world!";
   // response(connfd, 200, "Ok", send_buffer, mesg, strlen(mesg));
 end:
+  if (share_address != 0) shmdt(share_address);
+  fprintf(stderr, "share_address: %p\n", share_address);
   free(req_buf);
   free(recv_buffer);
   free(send_buffer);
   fprintf(stderr, "fd: %d\n", connfd);
   shutdown(connfd, SHUT_RDWR);
-  return (void *)0;
 }
 
 int read_request_line(int connfd, struct req_line *req_line, char *recv_buffer,
@@ -150,9 +232,9 @@ void response(int connfd, int status_code, const char *reason_phrase,
                       "Content-Type: text/html; charset=utf-8%s", CRLF);
   send(connfd, send_buffer, send_num, 0);
 
-  // 分割换行
-  send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
-  send(connfd, send_buffer, send_num, 0);
+  // // 分割换行
+  // send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
+  // send(connfd, send_buffer, send_num, 0);
 
   // send body
   send_num =
@@ -240,12 +322,9 @@ void parse_uri(int connfd, struct req_line *req_buffer, char *send_buffer) {
         snprintf(send_buffer, BUFFSIZE, "HTTP/1.1 %d %s%s", 200, "Ok", CRLF);
     send(connfd, send_buffer, send_num, 0);
     // send headers
-    send_num = snprintf(send_buffer, BUFFSIZE,
-                        "%s", CRLF);
-    send(connfd, send_buffer, send_num, 0);
-    send_num = snprintf(send_buffer, BUFFSIZE,
-                        "%s", CRLF);
-    send(connfd, send_buffer, send_num, 0);
+    // send_num = snprintf(send_buffer, BUFFSIZE,
+    //                     "%s", CRLF);
+    // send(connfd, send_buffer, send_num, 0);
 
     while ((ret = read(fd, send_buffer, BUFFSIZE)) != 0) {
       fprintf(stderr, "ret: %d\n", ret);
@@ -270,8 +349,17 @@ void parse_uri(int connfd, struct req_line *req_buffer, char *send_buffer) {
   response(connfd, 200, "Ok", send_buffer, 0, 0);
 }
 
-int main() {
-  server(SERVER_PORT);
+void *exit_handler(int signo) {
+  shmctl(global_shm_id, IPC_RMID, NULL);
+  fprintf(stderr, "end\n");
+  exit(signo);
+}
+
+int main(int argc, char **argv) {
+  if (argc < 2) return 1;
+  uint16_t port = (uint16_t)atoi(argv[1]);
+  signal(SIGINT, exit_handler);
+  server(port);
   return 0;
 }
 
