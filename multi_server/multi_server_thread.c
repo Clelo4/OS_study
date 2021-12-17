@@ -18,7 +18,7 @@
 #include "server.h"
 
 #define SHARE_MEMORY_FILE_PATH "./share_mem.lock"
-#define FTOK_ID 23
+#define FTOK_ID 4
 #define SHM_SIZE 8192
 int global_shm_id = -1;
 struct share_statistics *share_address = 0;
@@ -422,15 +422,21 @@ void server(u_int16_t port) {
   }
 }
 
-void exit_handler(int signo) {
+void exit_handler(void) {
   const char *end = "main process end\n";
   if (global_shm_id != -1) shmctl(global_shm_id, IPC_RMID, NULL);
   sem_destroy(&sem);
   write(STDERR_FILENO, end, strlen(end));
-  exit(signo);
+}
+
+void sigint_handler(int signo) {
+  exit(1);
 }
 
 int main(int argc, char **argv) {
+  signal(SIGINT, sigint_handler);
+  atexit(exit_handler);
+
   // 防止产生僵尸进程
   key_t shm_key;
 
@@ -454,8 +460,7 @@ int main(int argc, char **argv) {
 
   sem_init(&sem, 0, 1);
 
-  signal(SIGINT, exit_handler);
-  server(2346);
+  server(1991);
   return 0;
 }
 
