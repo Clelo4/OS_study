@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <semaphore.h>
 
 #include "server.h"
 
@@ -28,6 +29,7 @@
 #define SHM_SIZE 8192
 int global_shm_id = -1;
 struct share_statistics *share_address = 0;
+sem_t *shm_sem = 0;
 
 struct share_statistics {
   char title[20];
@@ -38,10 +40,37 @@ struct share_statistics {
   int code_5xx;
 };
 
+void write_code(int code) {
+  sem_wait(shm_sem);
+  ++share_address->requests;
+  if (share_address) {
+    switch (code / 100) {
+    case 2:
+      ++share_address->code_2xx;
+      break;
+    case 3:
+      ++share_address->code_3xx;
+      break;
+    case 4:
+      ++share_address->code_4xx;
+      break;
+    case 5:
+      ++share_address->code_5xx;
+      break;
+    default:
+      break;
+    }
+  }
+  sem_post(shm_sem);
+}
+
 void do_call(int connfd) {
   struct req_line *req_buf = calloc(1, sizeof(struct req_line));
   char *recv_buffer = calloc(1, BUFFSIZE);
   char *send_buffer = calloc(1, BUFFSIZE);
+  shm_sem = sem_open(SHARE_MEMORY_FILE_PATH, O_CREAT, S_IRWXU, 1);
+  if (shm_sem == 0)
+    goto end;
 
   key_t shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
   if (shm_key == -1) {
@@ -75,10 +104,19 @@ void do_call(int connfd) {
     response(connfd, 505, "HTTP Version Not Supported", send_buffer, 0, 0);
     goto end;
   }
-  req_parser(connfd, req_buf, send_buffer);
+  if (req_buf->req_uri[0] != 0 && strncasecmp("statistics", req_buf->req_uri + 1, sizeof("statistics")) == 0) {
+    //
+    int total = share_address->requests;
+    char mesg_buff[200];
+    snprintf(mesg_buff, 200, "requests: %d\n", total);
+    response(connfd, 200, "Ok", send_buffer, mesg_buff, strlen(mesg_buff));
+  } else
+    req_parser(connfd, req_buf, send_buffer);
 end:
   if (share_address != 0)
     shmdt(share_address);
+  if (shm_sem != 0)
+    sem_close(shm_sem);
   free(req_buf);
   free(recv_buffer);
   free(send_buffer);
@@ -152,31 +190,16 @@ void response(int connfd, int status_code, const char *reason_phrase, char *send
   send_num = snprintf(send_buffer, BUFFSIZE, "Content-Type: text/html; charset=utf-8%s", CRLF);
   send(connfd, send_buffer, send_num, 0);
 
+  send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
+  send(connfd, send_buffer, send_num, 0);
+
   // send body
   send_num = snprintf(send_buffer, BUFFSIZE, "%s%s", (const char *)message, CRLF);
   send(connfd, send_buffer, send_num, 0);
   // end
   send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
   send(connfd, send_buffer, send_num, 0);
-
-  if (share_address) {
-    switch (status_code / 100) {
-    case 2:
-      ++share_address->code_2xx;
-      break;
-    case 3:
-      ++share_address->code_3xx;
-      break;
-    case 4:
-      ++share_address->code_4xx;
-      break;
-    case 5:
-      ++share_address->code_5xx;
-      break;
-    default:
-      break;
-    }
-  }
+  write_code(status_code);
 }
 
 void parse_method(enum http_method *method, const char *buff, size_t n) {
@@ -260,6 +283,7 @@ void req_parser(int connfd, struct req_line *req_buffer, char *send_buffer) {
     int send_num = 0;
     send_num = snprintf(send_buffer, BUFFSIZE, "HTTP/1.1 %d %s%s", 200, "Ok", CRLF);
     send(connfd, send_buffer, send_num, 0);
+    write_code(200);
 
     send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
     send(connfd, send_buffer, send_num, 0);
