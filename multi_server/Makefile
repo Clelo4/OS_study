@@ -3,7 +3,10 @@ CFLAGS = -g --std=gnu99
 CC = gcc
 
 all:
-	make server.out
+	make clean && make server.out
 
-server.out: server.c
+server.out: multi_server.c
 	$(CC) $(CFLAGS) -o $@ $^
+
+clean:
+	-rm -rf server.out

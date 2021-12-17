@@ -240,11 +240,9 @@ void parse_uri(int connfd, struct req_line *req_buffer, char *send_buffer) {
         snprintf(send_buffer, BUFFSIZE, "HTTP/1.1 %d %s%s", 200, "Ok", CRLF);
     send(connfd, send_buffer, send_num, 0);
     // send headers
-    send_num = snprintf(send_buffer, BUFFSIZE,
-                        "%s", CRLF);
+    send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
     send(connfd, send_buffer, send_num, 0);
-    send_num = snprintf(send_buffer, BUFFSIZE,
-                        "%s", CRLF);
+    send_num = snprintf(send_buffer, BUFFSIZE, "%s", CRLF);
     send(connfd, send_buffer, send_num, 0);
 
     while ((ret = read(fd, send_buffer, BUFFSIZE)) != 0) {
@@ -274,4 +272,3 @@ int main() {
   server(SERVER_PORT);
   return 0;
 }
-
