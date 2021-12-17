@@ -203,8 +203,7 @@ void *do_call(void *arg) {
       req_parser(connfd, req_buf, send_buffer);
   end:
     log_print("end, connfd: %d\n", connfd);
-    shutdown(connfd, SHUT_RDWR);
-    close(connfd);
+    shutdown(connfd, SHUT_WR);
   }
   free(req_buf);
   free(recv_buffer);
