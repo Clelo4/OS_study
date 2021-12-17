@@ -18,7 +18,7 @@
 #include "server.h"
 
 #define SHARE_MEMORY_FILE_PATH "./share_mem.lock"
-#define FTOK_ID 4
+#define FTOK_ID 105
 #define SHM_SIZE 8192
 int global_shm_id = -1;
 struct share_statistics *share_address = 0;
@@ -429,9 +429,7 @@ void exit_handler(void) {
   write(STDERR_FILENO, end, strlen(end));
 }
 
-void sigint_handler(int signo) {
-  exit(1);
-}
+void sigint_handler(int signo) { exit(1); }
 
 int main(int argc, char **argv) {
   signal(SIGINT, sigint_handler);
@@ -463,4 +461,3 @@ int main(int argc, char **argv) {
   server(1991);
   return 0;
 }
-

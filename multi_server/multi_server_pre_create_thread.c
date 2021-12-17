@@ -18,7 +18,7 @@
 #include "server.h"
 
 #define SHARE_MEMORY_FILE_PATH "./share_mem.lock"
-#define FTOK_ID 4
+#define FTOK_ID 102
 #define SHM_SIZE 8192
 #define N_THREADS 16
 static pthread_t thread_pool[N_THREADS];
@@ -165,15 +165,12 @@ void *do_call(void *arg) {
   struct req_line *req_buf = calloc(1, sizeof(struct req_line));
   char *recv_buffer = calloc(1, BUFFSIZE);
   char *send_buffer = calloc(1, BUFFSIZE);
-  pthread_detach(pthread_self());
   while (1) {
     if ((connfd = accept(serverfd, (struct sockaddr *)&clientaddr,
                          (socklen_t *)&len)) < 0) {
       if (errno == EINTR) continue;
       err_sys("socket accept error");
     }
-
-    int connfd = (long)arg;
 
     // Read Request-Line
     // Request-Line format = Method SP Request-URI SP HTTP-Version CRLF
@@ -423,7 +420,7 @@ void server(u_int16_t port) {
   if (-1 == bind(serverfd, (const struct sockaddr *)&serveraddr,
                  (socklen_t)sizeof(serveraddr)))
     err_sys("bind socket fd error");
-  if (-1 == listen(serverfd, 0)) err_sys("listen socket error");
+  if (-1 == listen(serverfd, 20)) err_sys("listen socket error");
 
   for (int i = 0; i < N_THREADS; ++i) {
     pthread_create(&thread_pool[i], NULL, do_call, (void *)serverfd);
