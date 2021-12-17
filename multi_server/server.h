@@ -47,6 +47,7 @@ char log_buffer[8192];
   })
 
 void log_print(const char *format, ...) {
+  return;
   va_list arg_list;
   va_start(arg_list, format);
   vfprintf(stderr, format, arg_list);
@@ -72,3 +73,4 @@ void response(int, int, const char *, char *, const void *, size_t);
 void parse_method(enum http_method *, const char *, size_t n);
 void parse_version(struct http_version *, char *, size_t n);
 void req_parser(int, struct req_line *, char *);
+
