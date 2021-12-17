@@ -1,5 +1,5 @@
 /**
- * @file multi_server.c
+ * @file multi_server_thread
  * @author Jack
  * @mail chengjunjie.jack@gmail.com
  * @date 2021-12-16
