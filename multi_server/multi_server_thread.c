@@ -445,7 +445,7 @@ int main(int argc, char **argv) {
         "SHARE_MEMORY_FILE_PATH does not exist or if it cannot be accessed "
         "by "
         "the calling process\n");
-  int shm_id = shmget(shm_key, SHM_SIZE, IPC_CREAT | IPC_EXCL | 0660);
+  int shm_id = shmget(shm_key, SHM_SIZE, IPC_CREAT | 0660);
   if (shm_id == -1) err_sys("call shmget error");
   share_address = shmat(shm_id, 0, 0);
   global_shm_id = shm_id;

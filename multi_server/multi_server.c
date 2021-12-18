@@ -8,15 +8,23 @@
  * @copyright Copyright (c) 2021
  */
 
+#include <assert.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 
 #include "server.h"
 
 #define SHARE_MEMORY_FILE_PATH "./share_mem.lock"
+#ifdef __linux__
+#define SEM_FILE "/sem_lock"
+#else
+#define SEM_FILE SHARE_MEMORY_FILE_PATH
+#endif
 #define FTOK_ID 8
 #define SHM_SIZE 8192
 int global_shm_id = -1;
@@ -113,9 +121,6 @@ void ls_version_one(int connfd, char *send_buffer, const char *path) {
       }
       send(connfd, send_buffer, ret, 0);
     }
-
-    // end
-    close(fd);
   }
 }
 
@@ -160,7 +165,11 @@ void do_call(int connfd) {
   char *recv_buffer = calloc(1, BUFFSIZE);
   char *send_buffer = calloc(1, BUFFSIZE);
   shm_sem = sem_open(SHARE_MEMORY_FILE_PATH, O_CREAT, S_IRWXU, 1);
-  if (shm_sem == 0) goto end;
+  if (shm_sem == SEM_FAILED) {
+    log_print("SEM_FAILED: %d sem_open: %p %s\n", SEM_FAILED, shm_sem,
+              strerror(errno));
+    goto end;
+  }
 
   key_t shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
   if (shm_key == -1) {
@@ -215,7 +224,7 @@ end:
   free(req_buf);
   free(recv_buffer);
   free(send_buffer);
-  shutdown(connfd, SHUT_RDWR);
+  shutdown(connfd, SHUT_RD);
 }
 
 int read_request_line(int connfd, struct req_line *req_line, char *recv_buffer,
@@ -443,7 +452,6 @@ void server(u_int16_t port) {
       log_print("child id: %d\n", getpid());
       close(serverfd);
       do_call(connfd);
-      close(connfd);
       return;
     } else {
       err_sys("Fork error");
@@ -459,8 +467,7 @@ void exit_handler(int signo) {
 }
 
 int main(int argc, char **argv) {
-  // if (argc < 2) return 1;
-  // uint16_t port = (uint16_t)atoi(argv[1]);
+  signal(SIGINT, exit_handler);
 
   void *shm_address = 0;
   // 防止产生僵尸进程
@@ -478,7 +485,7 @@ int main(int argc, char **argv) {
         "SHARE_MEMORY_FILE_PATH does not exist or if it cannot be accessed "
         "by "
         "the calling process\n");
-  int shm_id = shmget(shm_key, SHM_SIZE, IPC_CREAT | IPC_EXCL | 0660);
+  int shm_id = shmget(shm_key, SHM_SIZE, IPC_CREAT | 0660);
   if (shm_id == -1) err_sys("call shmget error");
   shm_address = shmat(shm_id, 0, 0);
   global_shm_id = shm_id;
@@ -491,7 +498,8 @@ int main(int argc, char **argv) {
   memcpy(shm_address, &ss, sizeof(struct share_statistics));
   shmdt(shm_address);
 
-  signal(SIGINT, exit_handler);
+  sem_unlink(SEM_FILE);
+
   server(2346);
   return 0;
 }
