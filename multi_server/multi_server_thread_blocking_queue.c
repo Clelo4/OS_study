@@ -253,7 +253,7 @@ void queue_put(struct queue *q, int sock) {
   pthread_mutex_lock(&q->mutex);
   if (q->first == 0) {
     q->first = mq;
-  } else if (q->first == q->last) {
+  } else {
     q->last->next = mq;
   }
   q->last = mq;
@@ -266,7 +266,7 @@ int queue_get(struct queue *q) {
   struct message *mq;
   int socket;
   pthread_mutex_lock(&q->mutex);
-  while (q->length > 0) pthread_cond_wait(&q->cond, &q->mutex);
+  while (q->length == 0) pthread_cond_wait(&q->cond, &q->mutex);
   q->length -= 1;
   mq = q->first;
   if (q->first == q->last && q->first->next == 0) {
