@@ -195,27 +195,6 @@ void do_call(int connfd) {
   struct req_line *req_buf = calloc(1, sizeof(struct req_line));
   char *recv_buffer = calloc(1, BUFFSIZE);
   char *send_buffer = calloc(1, BUFFSIZE);
-  shm_sem = sem_open(SHARE_MEMORY_FILE_PATH, O_CREAT, S_IRWXU, 1);
-  if (shm_sem == SEM_FAILED) {
-    log_print("SEM_FAILED: %d sem_open: %p %s\n", SEM_FAILED, shm_sem,
-              strerror(errno));
-    goto end;
-  }
-
-  key_t shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
-  if (shm_key == -1) {
-    log_print(
-        "call ftok error: %s does not exist or if it cannot be accessed by "
-        "the calling process\n",
-        SHARE_MEMORY_FILE_PATH);
-    goto end;
-  }
-  share_address = (struct share_statistics *)shmat(global_shm_id, 0, 0);
-  if (share_address == 0) {
-    log_print("call shmat error: %s\n", strerror(errno));
-    goto end;
-  }
-  log_print("title: %s\n", share_address->title);
 
   // Read Request-Line
   // Request-Line format = Method SP Request-URI SP HTTP-Version CRLF
@@ -235,9 +214,12 @@ void do_call(int connfd) {
       strncasecmp("statistics", req_buf->req_uri + 1, sizeof("statistics")) ==
           0) {
     //
+    sem_wait(shm_sem);
     int total = share_address->requests;
+    sem_post(shm_sem);
     char mesg_buff[200];
     snprintf(mesg_buff, 200, "requests: %d\n", total);
+
     response(connfd, 200, "Ok", send_buffer, mesg_buff, strlen(mesg_buff));
   } else if (req_buf->req_uri[0] != 0 && req_buf->req_uri[5] == '/' &&
              strncasecmp("bash", req_buf->req_uri + 1, 4) == 0) {
@@ -248,12 +230,10 @@ void do_call(int connfd) {
   } else
     req_parser(connfd, req_buf, send_buffer);
 end:
-  if (share_address != 0) shmdt(share_address);
-  if (shm_sem != 0) sem_close(shm_sem);
   free(req_buf);
   free(recv_buffer);
   free(send_buffer);
-  shutdown(connfd, SHUT_RD);
+  shutdown(connfd, SHUT_WR);
 }
 
 int read_request_line(int connfd, struct req_line *req_line, char *recv_buffer,
@@ -446,6 +426,7 @@ void req_parser(int connfd, struct req_line *req_buffer, char *send_buffer) {
 }
 
 void server(u_int16_t port) {
+  log_print("start server: %d\n", getpid());
   int serverfd, connfd;
   pid_t pid;
   int on = 1;
@@ -459,14 +440,27 @@ void server(u_int16_t port) {
   serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
   serveraddr.sin_port = htons(port);
 
-  if (-1 == setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &on,
+  if (-1 == setsockopt(serverfd, SOL_SOCKET, SO_REUSEPORT, &on,
                        (socklen_t)sizeof(on)))
-    err_sys("setsockopt SO_REUSEADDR error");
+    err_sys("setsockopt SO_REUSEPORT error");
 
   if (-1 == bind(serverfd, (const struct sockaddr *)&serveraddr,
                  (socklen_t)sizeof(serveraddr)))
     err_sys("bind socket fd error");
   if (-1 == listen(serverfd, 0)) err_sys("listen socket error");
+
+  shm_sem = sem_open(SHARE_MEMORY_FILE_PATH, O_CREAT, S_IRWXU, 1);
+  if (shm_sem == SEM_FAILED) {
+    log_print("SEM_FAILED: %d sem_open: %p %s\n", SEM_FAILED, shm_sem,
+              strerror(errno));
+    exit(1);
+  }
+  share_address = (struct share_statistics *)shmat(global_shm_id, 0, 0);
+  if (share_address == 0) {
+    log_print("call shmat error: %s\n", strerror(errno));
+    exit(1);
+  }
+  log_print("do_call: %d title: %s\n", getpid(), share_address->title);
 
   while (1) {
     if ((connfd = accept(serverfd, (struct sockaddr *)&clientaddr,
@@ -474,17 +468,7 @@ void server(u_int16_t port) {
       if (errno == EINTR) continue;
       err_sys("socket accept error");
     }
-    if ((pid = fork()) > 0) {
-      log_print("process id: %d\n", getpid());
-      close(connfd);
-    } else if (pid == 0) {
-      log_print("child id: %d\n", getpid());
-      close(serverfd);
-      do_call(connfd);
-      return;
-    } else {
-      err_sys("Fork error");
-    }
+    do_call(connfd);
   }
 }
 
@@ -524,16 +508,10 @@ void exit_handler(int signo) {
 }
 
 int main(int argc, char **argv) {
-  signal(SIGINT, exit_handler);
+  uint16_t port = 2346;
 
   void *shm_address = 0;
-  // 防止产生僵尸进程
-  struct sigaction action;
   key_t shm_key;
-
-  action.__sigaction_u.__sa_handler = SIG_IGN;
-  action.sa_flags = SA_NOCLDWAIT;
-  sigaction(SIGCHLD, &action, NULL);
 
   // 创建XSI IPC共享存错
   shm_key = ftok(SHARE_MEMORY_FILE_PATH, FTOK_ID);
@@ -556,14 +534,30 @@ int main(int argc, char **argv) {
   shmdt(shm_address);
 
   sem_unlink(SEM_FILE);
+
+  fprintf(stderr, "main pid: %d\n", getpid());
+
+  static pid_t process_pool[32];
+  for (int i = 0; i < sizeof(process_pool) / sizeof(pid_t); ++i) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      server(port);
+      exit(1);
+    } else if (pid < 0) {
+      err_sys("create process error\n");
+    }
+    process_pool[i] = pid;
+  }
+
   sem_unlink(SEM_USER1_FILE);
 
   user1_sem = sem_open(SEM_USER1_FILE, O_CREAT, S_IRWXU, 0);
   if (user1_sem == SEM_FAILED) {
-    log_print("SEM_FAILED: %d user1_sem sem_open: %p %s\n", SEM_FAILED, shm_sem,
-              strerror(errno));
+    log_print("SEM_FAILED: %d user1_sem sem_open: %p %s\n", SEM_FAILED,
+              user1_sem, strerror(errno));
   }
-
+  signal(SIGINT, exit_handler);
+  signal(SIGUSR1, siguser1_signo_handler);
   int handler_siguser1_pid = fork();
   if (handler_siguser1_pid == 0) {
     handler_siguser1();
@@ -572,10 +566,10 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  signal(SIGUSR1, siguser1_signo_handler);
-  fprintf(stderr, "main pid: %d\n", getpid());
+  for (;;) {
+    waitpid(-1, NULL, 0);
+  }
 
-  server(2346);
   return 0;
 }
 
