@@ -22,14 +22,17 @@
 #define SHARE_MEMORY_FILE_PATH "./share_mem.lock"
 #ifdef __linux__
 #define SEM_FILE "/sem_lock"
+#define SEM_USER1_FILE "/sem_user1_lock"
 #else
 #define SEM_FILE SHARE_MEMORY_FILE_PATH
+#define SEM_USER1_FILE "./sem_user1.lock"
 #endif
 #define FTOK_ID 8
 #define SHM_SIZE 8192
 int global_shm_id = -1;
 struct share_statistics *share_address = 0;
 sem_t *shm_sem = 0;
+sem_t *user1_sem = 0;
 
 struct share_statistics {
   char title[20];
@@ -179,12 +182,7 @@ void do_call(int connfd) {
         SHARE_MEMORY_FILE_PATH);
     goto end;
   }
-  int shm_id = shmget(shm_key, 0, IPC_CREAT | 0660);
-  if (shm_id == -1) {
-    log_print("do_call: call shmget error: %s\n", strerror(errno));
-    goto end;
-  }
-  share_address = (struct share_statistics *)shmat(shm_id, 0, 0);
+  share_address = (struct share_statistics *)shmat(global_shm_id, 0, 0);
   if (share_address == 0) {
     log_print("call shmat error: %s\n", strerror(errno));
     goto end;
@@ -459,6 +457,34 @@ void server(u_int16_t port) {
   }
 }
 
+void siguser1_signo_handler(int signo) { sem_post(user1_sem); }
+
+void handler_siguser1() {
+  shm_sem = sem_open(SHARE_MEMORY_FILE_PATH, O_CREAT, S_IRWXU, 1);
+  if (shm_sem == SEM_FAILED) {
+    log_print("SEM_FAILED: %d sem_open: %p %s\n", SEM_FAILED, shm_sem,
+              strerror(errno));
+  }
+  user1_sem = sem_open(SEM_USER1_FILE, O_CREAT, S_IRWXU, 0);
+  if (user1_sem == SEM_FAILED) {
+    log_print("SEM_FAILED: %d sem_open: %p %s\n", SEM_FAILED, shm_sem,
+              strerror(errno));
+  }
+  share_address = (struct share_statistics *)shmat(global_shm_id, 0, 0);
+  if (share_address == 0) {
+    log_print("handler_siguser1 call shmat error: %s\n", strerror(errno));
+  }
+  log_print("handler_siguser1 title: %s\n", share_address->title);
+  int value;
+  for (;;) {
+    sem_wait(user1_sem);
+    sem_wait(shm_sem);
+    value = share_address->requests;
+    sem_post(shm_sem);
+    fprintf(stderr, "handler_siguser1 requests: %d\n", value);
+  }
+}
+
 void exit_handler(int signo) {
   if (global_shm_id != -1) shmctl(global_shm_id, IPC_RMID, NULL);
   const char *end = "main process end\n";
@@ -499,6 +525,24 @@ int main(int argc, char **argv) {
   shmdt(shm_address);
 
   sem_unlink(SEM_FILE);
+  sem_unlink(SEM_USER1_FILE);
+
+  user1_sem = sem_open(SEM_USER1_FILE, O_CREAT, S_IRWXU, 0);
+  if (user1_sem == SEM_FAILED) {
+    log_print("SEM_FAILED: %d user1_sem sem_open: %p %s\n", SEM_FAILED, shm_sem,
+              strerror(errno));
+  }
+
+  int handler_siguser1_pid = fork();
+  if (handler_siguser1_pid == 0) {
+    handler_siguser1();
+    exit(127);
+  } else if (handler_siguser1_pid < 0) {
+    exit(1);
+  }
+
+  signal(SIGUSR1, siguser1_signo_handler);
+  fprintf(stderr, "main pid: %d\n", getpid());
 
   server(2346);
   return 0;
