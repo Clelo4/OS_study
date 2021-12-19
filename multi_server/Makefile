@@ -5,7 +5,7 @@ CC = gcc
 all:
 	make clean && make server.out
 
-server.out: multi_server_thread_blocking_queue.c
+server.out: multi_server_pre_forked_pool_of_processes.c
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:

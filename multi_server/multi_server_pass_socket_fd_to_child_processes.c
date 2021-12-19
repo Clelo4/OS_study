@@ -1,5 +1,5 @@
 /**
- * @file multi_server_pre_create_thread.c
+ * @file multi_server_pass_socket_fd_to_child_processes.c
  * @author Jack
  * @mail chengjunjie.jack@gmail.com
  * @date 2021-12-16
@@ -16,6 +16,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 
 #include "server.h"
 
@@ -29,6 +30,8 @@
 #endif
 #define FTOK_ID 8
 #define SHM_SIZE 8192
+#define UNIX_SOCKET_NAME "/var/tmp/unix_socket_name.socket"
+
 int global_shm_id = -1;
 struct share_statistics *share_address = 0;
 sem_t *shm_sem = 0;
@@ -45,6 +48,11 @@ struct share_statistics {
 };
 
 void handle_bash(int connfd, char *send_buffer, char *command);
+/**
+ * Create a server endpoint of a connection.
+ * Return fd is all OK, < 0 on error.
+ */
+int un_listen(const char *name);
 
 void write_code(int code) {
   sem_wait(shm_sem);
@@ -536,6 +544,12 @@ int main(int argc, char **argv) {
   sem_unlink(SEM_FILE);
 
   fprintf(stderr, "main pid: %d\n", getpid());
+
+  // create unix socket
+  struct sockaddr_un un;
+  if (strlen(UNIX_SOCKET_NAME) >= sizeof(un.sun_path)) {
+    errno = ENAMETOOLONG;
+  }
 
   static pid_t process_pool[32];
   for (int i = 0; i < sizeof(process_pool) / sizeof(pid_t); ++i) {
