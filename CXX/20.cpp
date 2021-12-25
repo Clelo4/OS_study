@@ -10,7 +10,6 @@
 
 #include <iostream>
 #include <string>
-#include <type_traits>
 
 typedef void (*typedef_fn_type)(void);
 using using_fn_type = void (*)(void);
