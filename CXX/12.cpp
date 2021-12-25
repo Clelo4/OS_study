@@ -1,4 +1,5 @@
 /**
+ * @brief 复制对象时，需要复制其每一部分，包括其父类对象
  * @file 12.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com

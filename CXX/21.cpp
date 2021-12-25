@@ -1,4 +1,5 @@
 /**
+ * @brief 必要时返回对象，而不是引用
  * @file 21.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com

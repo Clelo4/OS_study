@@ -3,7 +3,7 @@ CFLAGS = -g -std=c++11 -D DEBUG=true
 CC = gcc
 CXX = clang++
 
-TARGET = 21
+TARGET = 24
 SOURCE = $(TARGET).cpp
 
 all:

@@ -1,6 +1,6 @@
 /**
  *
- * @brief Effective C++ 04 确定对象初始化
+ * @brief Effective C++ 04 确定对象在使用前已经初始化
  * @file 04.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com

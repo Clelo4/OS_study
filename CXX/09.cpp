@@ -1,4 +1,5 @@
 /**
+ * @brief 绝不在构造和析构过程中调用virtual函数
  * @file 09.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com

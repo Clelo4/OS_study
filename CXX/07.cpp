@@ -1,4 +1,5 @@
 /**
+ * @brief 为多态基类声明virtual析构函数
  * @file 07.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com

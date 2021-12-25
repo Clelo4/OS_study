@@ -1,4 +1,5 @@
 /**
+ * @brief 不需要自动生成的函数（构造函数、解构函数、copy构造函数等），就明确拒绝
  * @file 06.cpp
  * @author Jack
  * @mail chengjunjie.jack@gmail.com
