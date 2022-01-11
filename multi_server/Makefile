@@ -1,5 +1,5 @@
 
-CFLAGS = -g --std=gnu99 -D DEBUG=true
+CFLAGS = -Wall -g --std=gnu99 -D DEBUG=true
 CC = gcc
 
 all:
