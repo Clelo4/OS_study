@@ -51,6 +51,8 @@ class Widget {
 
 template <typename T>
 void swap(Widget<T>& a, Widget<T>& b) {
+  std::cout << "template <typename T> void swap(Widget<T> & a, Widget<T> & b) "
+            << std::endl;
   a.swap(b);
 }
 

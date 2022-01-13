@@ -1,12 +1,3 @@
-/le template.cpp
- * @author Jack
- * @mail chengjunjie.jack@gmail.com
- * @date 2022-01-12
- * @version 0.1
- *
- * @copyright Copyright (c) 2022
- */
-
 #include <cstddef>
 #include <iostream>
 
@@ -73,13 +64,4 @@ int main() {
   a1++.print();
   a1.print();
   return 0;
-}**
- * @file template.cpp
- * @author Jack
- * @mail chengjunjie.jack@gmail.com
- * @date 2022-01-12
- * @version 0.1
- *
- * @copyright Copyright (c) 2022
- */
-
+}
