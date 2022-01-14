@@ -149,8 +149,5 @@ int main() {
   // My_shared_ptr<int> t5(t3, [](int *ptr) -> void { delete ptr; });
   cout << "t1: " << t1.use_count() << endl;
   // cout << "t2: " << t2.use_count() << endl;
-  // t1 = t;
-
-  // for_each();
   return 0;
 }
