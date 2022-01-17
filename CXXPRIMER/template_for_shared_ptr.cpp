@@ -7,25 +7,33 @@
  *
  * @copyright Copyright (c) 2022
  */
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
 
 using namespace std;
 
+// shared_ptr;
 template <typename T>
 class My_shared_ptr {
  public:
+  ~My_shared_ptr() {
+    size_t left = *ref_count;
+    _reduce_ref();
+    if (left == 1) {
+      delete ref_count;
+      cout << "delete ref_count" << endl;
+    }
+  }
   My_shared_ptr() : ptr(nullptr), ref_count(new size_t(0), deleter(nullptr)) {}
-  explicit My_shared_ptr(T *t)
-      : ptr(t), ref_count(new size_t(0), deleter(nullptr)) {}
-  ~My_shared_ptr() { _reduce_ref(); }
-
-  template <typename N>
-  My_shared_ptr(const My_shared_ptr<N> &);
-
-  template <typename N>
-  My_shared_ptr &operator=(const My_shared_ptr<N> &);
+  explicit My_shared_ptr(T *);
+  template <typename Function_t>
+  My_shared_ptr(T *, Function_t);
+  My_shared_ptr(const My_shared_ptr &) noexcept;
+  template <typename Function_t>
+  My_shared_ptr(const My_shared_ptr &, Function_t) noexcept;
+  My_shared_ptr &operator=(const My_shared_ptr &) noexcept;
 
   operator bool() const;
   T &operator*();
@@ -33,7 +41,7 @@ class My_shared_ptr {
   void swap(My_shared_ptr &b);
 
   bool unique() { return ref_count == 1; }
-  size_t use_count() { return ref_count }
+  size_t use_count() { return *ref_count; }
 
  private:
   T *ptr;
@@ -41,27 +49,55 @@ class My_shared_ptr {
   void *deleter;
   void _reduce_ref() {
     if (--*ref_count == 0) {
-      if (deleter == nullptr)
+      if (deleter == nullptr) {
+        cout << "delete ptr" << endl;
         delete ptr;
-      else
+      } else {
+        cout << "custom deleter start" << endl;
+        // TODO 如何将deleter作为函数进行调用
         deleter(ptr);
+        cout << "custom deleter end" << endl;
+      }
     }
   };
 };
 
 template <typename T>
-template <typename N>
-inline My_shared_ptr<T>::My_shared_ptr(const My_shared_ptr<N> &other_ptr)
+inline My_shared_ptr<T>::My_shared_ptr(T *t)
+    : ptr(t), ref_count(new size_t(1)), deleter(nullptr) {}
+
+template <typename T>
+template <typename Function_t>
+inline My_shared_ptr<T>::My_shared_ptr(T *t, Function_t fn)
+    : ptr(t), ref_count(new size_t(1)) {
+  cout << "Here" << endl;
+  Function_t *delete_ptr = new Function_t(fn);
+  deleter = delete_ptr;
+}
+
+template <typename T>
+inline My_shared_ptr<T>::My_shared_ptr(const My_shared_ptr &other_ptr) noexcept
     : ref_count(other_ptr.ref_count),
       ptr(other_ptr.ptr),
       deleter(other_ptr.deleter) {
   ++*ref_count;
+  cout << "copy constructor" << endl;
 }
 
 template <typename T>
-template <typename N>
+template <typename Function_t>
+inline My_shared_ptr<T>::My_shared_ptr(const My_shared_ptr &b,
+                                       Function_t fn) noexcept
+    : ptr(b.ptr), ref_count(b.ref_count) {
+  cout << "Here" << endl;
+  ++*ref_count;
+  Function_t *delete_ptr = new Function_t(fn);
+  deleter = delete_ptr;
+}
+
+template <typename T>
 My_shared_ptr<T> &My_shared_ptr<T>::operator=(
-    const My_shared_ptr<N> &other_ptr) {
+    const My_shared_ptr &other_ptr) noexcept {
   if (other_ptr.ref_count == ref_count) return *this;
   _reduce_ref();
   ref_count = other_ptr.ref_count;
@@ -88,6 +124,8 @@ template <typename T>
 inline void My_shared_ptr<T>::swap(My_shared_ptr &b) {
   using std::swap;
   swap(*this->ptr, b.ptr);
+  swap(*this->ref_count, b.ref_count);
+  swap(*this->deleter, b.deleter);
 }
 
 template <typename T>
@@ -101,8 +139,15 @@ struct IntDeleter {
 };
 
 int main() {
-  My_shared_ptr<int> t(new int(12));
-  My_shared_ptr<int> t1(new int(13));
-  // t1 = t;
+  My_shared_ptr<int> t1(new int(12), [](int *ptr) -> void {
+    delete ptr;
+    cout << "lambda deleter" << endl;
+  });
+  // My_shared_ptr<int> t2(new int(13));
+  // My_shared_ptr<int> t3(t1);
+  // My_shared_ptr<int> t4(t1);
+  // My_shared_ptr<int> t5(t3, [](int *ptr) -> void { delete ptr; });
+  cout << "t1: " << t1.use_count() << endl;
+  // cout << "t2: " << t2.use_count() << endl;
   return 0;
 }
