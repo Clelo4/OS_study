@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <type_traits>
 
 using namespace std;
@@ -11,6 +12,8 @@ T fcn2(T &&val) {
 };
 template <typename T>
 void fcn3(T) {}
+
+int fcn4() { return 4; }
 
 int main() {
   int i = 1, &li = i, &&ri = 12;
@@ -26,7 +29,7 @@ int main() {
 
   // fcn1传入左值引用，T& &&会折叠成类型T&
   fcn1(li);
-  // fnc1传入const T&，模版参数T被推断为const T&类型
+  // fnc1传入const T&，const T& &&会折叠成类型const T&
   fcn1(cli);
 
   // 将左值传递给函数fcn1的右值引用形参，\且此右值引用形参指向模版类型参数时\
@@ -36,14 +39,20 @@ int main() {
   fcn1(i = cli);
   decltype(i = cli) a = i;  // a的类型是int&
 
+  fcn1(ri);   // ? 为什么不是int&&类型
+  fcn1(cri);  // ? 为什么不是const int&&类型
   fcn1(std::move(ri));
+  fcn1(std::move(string("byte")));
+  fcn1(fcn4());
   fcn3(ri);
   if (is_same<decltype(fcn2(b)), int &>::value) {
-    cout << "same" << endl;
+    cout << "same." << endl;
   }
   // 引用折叠只能适用于间接创建的引用的引用，如类型别名或模版参数
   // 例如：rf_int_type &&会自动折叠成int&&
   if (is_same<int &&, rf_int_type &&>::value) {
-    cout << "int &&, rf_int_type &&" << endl;
+    cout << "'int &&' and 'rf_int_type &&' is same." << endl;
   }
+
+  // https://isocpp.org/blog/2012/11/universal-references-in-c11-scott-meyers
 }
