@@ -71,7 +71,10 @@
     "__tree": "cpp",
     "map": "cpp",
     "set": "cpp",
-    "unordered_set": "cpp"
+    "unordered_set": "cpp",
+    "__memory": "cpp",
+    "memory_resource": "cpp",
+    "__functional_03": "cpp"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_style": "Google",
