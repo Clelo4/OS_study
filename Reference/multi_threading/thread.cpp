@@ -22,7 +22,8 @@ void fn() {
 int main() {
   thread first(fn);
   thread second(fn);
-  first.join();
-  second.join();
+  second.detach();
+  if (first.joinable()) first.join();
+  if (second.joinable()) second.join();
   return 0;
 }
