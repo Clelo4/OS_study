@@ -75,7 +75,11 @@
     "*.tcc": "cpp",
     "deque": "cpp",
     "fstream": "cpp",
-    "numeric": "cpp"
+    "numeric": "cpp",
+    "forward_list": "cpp",
+    "queue": "cpp",
+    "stl_queue.h": "c",
+    "thread": "cpp"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_style": "Google",

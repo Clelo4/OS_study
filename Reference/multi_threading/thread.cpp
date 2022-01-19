@@ -1,22 +1,28 @@
 /**
- * @file queue.cpp
+ * @file thread.cpp
  * @author your name (you@domain.com)
  * @brief
  * @version 0.1
- * @date 2022-01-18
+ * @date 2022-01-19
  *
  * @copyright Copyright (c) 2022
  *
  */
 
-#include <deque>
 #include <iostream>
-#include <queue>
-#include <vector>
+#include <thread>
 
 using namespace std;
 
+void fn() {
+  cout << "fn" << endl;
+  return;
+}
+
 int main() {
-  queue<int> qi;
+  thread first(fn);
+  thread second(fn);
+  first.join();
+  second.join();
   return 0;
 }
