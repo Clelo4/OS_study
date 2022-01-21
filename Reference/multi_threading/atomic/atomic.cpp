@@ -15,4 +15,10 @@
 
 using namespace std;
 
+void atomic_flag_test() {
+  atomic_flag af(true);
+  af.test_and_set();
+  af.clear();
+}
+
 int main() { return 0; }
