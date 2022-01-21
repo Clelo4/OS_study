@@ -32,7 +32,12 @@
   觸發硬體模塊開始處理資料>
   ```
 * e. 其他例子： double-checked locking.
-* f. 多线程编程与内存可见性：内存可见性问题，主要是高速缓存与内存的一致性问题。一个处理器上的线程修改了某数据，而在另一处理器上的线程可能仍然使用着该数据在专用cache中的老值，这就是可见性出了问题。解决办法是令该数据为volatile属性，或者读该数据之前执行内存屏障。【有待确认：volatile会执行】
+
+3. Out-of-order execution versus compiler reordering optimizations
+3.1 compiler reordering optimizations
+Compilers may also reorder instructions as part of the program optimization process. 
+
+多线程编程与内存可见性：内存可见性问题，主要是高速缓存与内存的一致性问题。一个处理器上的线程修改了某数据，而在另一处理器上的线程可能仍然使用着该数据在专用cache中的老值，这就是可见性出了问题。解决办法是令该数据为volatile属性，或者读该数据之前执行内存屏障。【有待确认：volatile会执行】
 * 编译器内存屏障：编译器会对生成的可执行代码做一定优化，造成乱序执行甚至省略（不执行）
 ```
 gcc编译器在遇到内嵌汇编语句：
@@ -46,4 +51,4 @@ Intel C++编译器的内存屏障为：
 > __memory_barrier()
 ```
 
-参考：https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md
+参考：https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md、https://www.kernel.org/doc/html/latest/process/volatile-considered-harmful.html

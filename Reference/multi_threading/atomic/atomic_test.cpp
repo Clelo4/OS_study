@@ -15,11 +15,10 @@
 
 using namespace std;
 
-void atomic_flag_test() {
-  atomic_flag af(true);
-  af.test_and_set();
-  af.clear();
-  atomic;
-}
+atomic<bool> ready{false};
+atomic<int> data{0};
+
+void thread1() { data.store((1, )) }
+void thread2() {}
 
 int main() { return 0; }
