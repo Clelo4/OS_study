@@ -82,7 +82,8 @@
     "forward_list": "cpp",
     "queue": "cpp",
     "stl_queue.h": "c",
-    "thread": "cpp"
+    "thread": "cpp",
+    "stack": "cpp"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_style": "Google",
