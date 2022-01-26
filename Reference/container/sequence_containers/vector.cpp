@@ -42,7 +42,15 @@ int main() {
   // 原本capacity：10，增加一个元素后，容量翻倍
   t.push_back(11);
   cout << "capacity: " << t.capacity() << endl;
-  t.erase(t.end()--);
+  t.erase(--t.end());
   cout << "capacity: " << t.capacity() << endl;
+  t.reserve(100);  // 即使通过reserve预分配空间，也不能使用超过size()的内存空间
+  cout << t.size() << endl;
+  *t.end() = 1123212;     // 错误用法：超出可用空间范围
+  cout << t[10] << endl;  // 错误用法：超出可用空间范围
+  t.resize(100);
+  cout << "capacity: " << t.capacity() << endl;
+  cout << t.size() << endl;
+  cout << t[10] << endl;  // 正常用法：t已经resize过
   return 0;
 }

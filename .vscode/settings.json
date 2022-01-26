@@ -83,6 +83,7 @@
     "queue": "cpp",
     "stl_queue.h": "c",
     "thread": "cpp",
+    "stack": "cpp",
     "condition_variable": "cpp"
   },
   "editor.formatOnSave": true,
