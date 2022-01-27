@@ -84,7 +84,13 @@
     "stl_queue.h": "c",
     "thread": "cpp",
     "stack": "cpp",
-    "condition_variable": "cpp"
+    "condition_variable": "cpp",
+    "compare": "cpp",
+    "concepts": "cpp",
+    "random": "cpp",
+    "numbers": "cpp",
+    "semaphore": "cpp",
+    "stop_token": "cpp"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_style": "Google",
