@@ -14,17 +14,44 @@
 
 using namespace std;
 
-// throw抛出异常对象。
-// 编译器使用异常抛出表达式来对异常对象进行拷贝初始化
-// 所以异常对象必须是可拷贝/可移动，且必须含有一个可访问的析构函数
-
-// 如果异常对象是数组类型或函数类型，则转为相对应的指针类型
+// 异常对象（一种特殊的对象）
+// 1. 编译器使用异常抛出表达式来对异常对象进行拷贝初始化
+//    所以异常对象必须包含可访问的拷贝构造/移动构造函数，且必须含有一个可访问的析构函数
+// 2. 如果异常对象是数组类型或函数类型，则转为相对应的指针类型，
+//    编译器对指针进行拷贝初始化
+// 3. 异常对象存储在编译器管理的空间内，任何catch语句均能访问它，
+//    异常处理完后，该异常对象被销毁
+// 4. 在抛出指针时，需要注意
 
 class A {
  public:
   A() = default;
   A(const A& a) = delete;
   A(const A&& a){};
+  explicit A(int k_) try : key(k_) {
+  } catch (...) {
+    cerr << "catch explicit A(int k_)" << endl;
+  }
+  ~A() {
+    cerr << "~A(" << key << ")" << endl;
+    key = -1;
+  }
+
+  int key = 0;
+};
+class B {
+ public:
+  B() = default;
+  explicit B(int k_) try : key(k_) {
+  } catch (...) {
+    cerr << "catch explicit B(int k_)" << endl;
+  }
+  ~B() {
+    cerr << "~B(" << key << ")" << endl;
+    key = -1;
+  }
+
+  int key = 0;
 };
 
 enum EXC_TYPE { INT, CLASS_A, POINTER, NULL_PTR, ARRAY };
@@ -55,14 +82,29 @@ void exception_object(EXC_TYPE e_type) {
   }
 };
 
+// 1. noexcept指明函数不会抛出异常
+// 2. 如果noexcept函数内部抛出异常，程序会调用terminate函数中止整个程序，
+//    以确保遵守不在运行时抛出异常的承诺.
+// 3. 声明函数不会抛出异常的价值：
+//    a. 函数始终不会抛出异常
+//    b. 函数可能抛出异常，但我们不知道如何处理这种异常
+// 4. 向后兼容：下面两种情况是等价的
+//    a. C++11之前：void fn() throw() {}
+//    b. C++11：void fn() noexcept {}
+// 5. noexcept参数
+//    a. noexcept(true) 声明函数不会抛出异常
+//    b. noexcept(false) 声明函数可能会抛出异常
+// 6. noexcept运算符...
+
+void noexcept_fn() noexcept { throw 1; }
+
+using right_ref_A = A&&;
+
 int main() {
   range_error r("range_error");
   try {
     // exception_object(ARRAY);
     exception* p = &r;
-    // 当我们抛出*p，即使p指向子类对象，
-    // 由于会进行复制/移动操作，则会按照*p的静态类型进行复制/移动。
-    // 也就是说：只有*p的当前静态类型部分被抛出。
     throw *p;
   } catch (exception e) {
     printf("exception: %s\n", e.what());
@@ -76,5 +118,38 @@ int main() {
   } catch (int* e) {
     printf("int*: %p\n", e);
   }
+  try {
+    {
+      A a(1);
+      {
+        A a(2);
+        cerr << "&a: " << &a << endl;
+        throw a;
+        throw &a;  // 错误用法，不能抛出指向局部对象的指针
+      }
+    }
+    // noexcept_fn();
+  } catch (A& e) {
+    cerr << "catch(A& e): " << &e << endl;
+  } catch (A* e) {
+    cerr << "catch(A* e): " << e->key << endl;
+  } catch (...) {
+    cerr << "noexcept_fn catch(...)" << endl;
+  }
+  try {
+    try {
+      B b(101);
+      throw b;
+    } catch (B e) {
+      cerr << "inside catch(B& e): " << e.key << " " << &e << endl;
+      throw;  // 进行重抛出，抛出的异常对象依旧是编译器存储空间的异常对象，而不是当前局部对象e
+    }
+  } catch (B& e) {
+    cerr << "outside catch(B& e): " << e.key << " " << &e << endl;
+  }
+  // catch子句中的异常声明，形参不能是右值引用
+  // 因为：在throw抛出表达式中，编译器已经对异常对象进行copy初始化，
+  // 也就是说catch子句中的异常对象实参，其实是存储在编译器管理的内存空间中，
+  // 显然无法对这样的对象进行移动操作
   return 0;
 }
