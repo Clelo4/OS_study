@@ -51,6 +51,32 @@ template <>
 class vector<int> {};
 }  // namespace std
 
+// Argument-Dependent Lookup
+namespace ADL {
+class A {
+ public:
+  void swap(A &a) {
+    std::swap(mem, a.mem);
+    std::swap(i, a.i);
+  }
+  std::string mem;
+  int i;
+};
+void fn(const A &) { std::cout << "ADL::fn(const A&)\n"; }
+void swap(A &a, A &b) {
+  std::cout << "ADL::swap(A &)\n";
+  a.swap(b);
+}
+};  // namespace ADL
+void adl() {
+  ADL::A a, b;
+  fn(a);
+  using std::swap;
+  swap(a.mem, b.mem);  // 执行ADL
+  swap(a.i, b.i);
+  swap(a, b);  // 执行ADL
+}
+
 int main() {
   using namespace std;
   using namespace my_name::nested_name;
@@ -69,5 +95,6 @@ int main() {
   cout << thread_local_static_int_1 << endl;
   print1();
   print2();
+  adl();
   return 0;
 }
