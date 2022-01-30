@@ -30,6 +30,7 @@ namespace wrapper {
 inline namespace inline_namespace_1 {
 int i_n_1 = 102;
 }
+int i_n_2 = 103;
 }  // namespace wrapper
 
 namespace my_name {
@@ -51,6 +52,8 @@ template <>
 class vector<int> {};
 }  // namespace std
 
+int i_n_2 = 101;
+
 int main() {
   using namespace std;
   using namespace my_name::nested_name;
@@ -69,5 +72,19 @@ int main() {
   cout << thread_local_static_int_1 << endl;
   print1();
   print2();
+
+  // using声明
+  {
+    using wrapper::i_n_1;
+    // int i_n_1;  // 命名冲突
+  }
+  // using指示
+  {
+    using namespace wrapper;
+    int i_n_1;  // 隐藏wrapper命名空间的i_n_1
+    cout << wrapper::i_n_2 << endl;
+    cout << ::i_n_2 << endl;
+    // cout << i_n_2 << endl; // reference to ‘i_n_2’ is ambiguous
+  }
   return 0;
 }
