@@ -53,6 +53,31 @@ class vector<int> {};
 }  // namespace std
 
 int i_n_2 = 101;
+// Argument-Dependent Lookup
+namespace ADL {
+class A {
+ public:
+  void swap(A &a) {
+    std::swap(mem, a.mem);
+    std::swap(i, a.i);
+  }
+  std::string mem;
+  int i;
+};
+void fn(const A &) { std::cout << "ADL::fn(const A&)\n"; }
+void swap(A &a, A &b) {
+  std::cout << "ADL::swap(A &)\n";
+  a.swap(b);
+}
+};  // namespace ADL
+void adl() {
+  ADL::A a, b;
+  fn(a);
+  using std::swap;
+  swap(a.mem, b.mem);  // 执行ADL
+  swap(a.i, b.i);
+  swap(a, b);  // 执行ADL
+}
 
 int main() {
   using namespace std;
@@ -86,5 +111,6 @@ int main() {
     cout << ::i_n_2 << endl;
     // cout << i_n_2 << endl; // reference to ‘i_n_2’ is ambiguous
   }
+  adl();
   return 0;
 }
