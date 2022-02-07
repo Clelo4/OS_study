@@ -90,7 +90,8 @@
     "random": "cpp",
     "numbers": "cpp",
     "semaphore": "cpp",
-    "stop_token": "cpp"
+    "stop_token": "cpp",
+    "*.tpp": "cpp"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_style": "Google",
