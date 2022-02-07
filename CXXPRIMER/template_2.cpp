@@ -7,6 +7,7 @@
  *
  * @copyright Copyright (c) 2022
  */
+#include <cstdio>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -49,5 +50,6 @@ class Extercise {
 int main() {
   fn();
   int iObj = sizeof(Stack<string>);
+  printf("A_static_int: %p\n", &A<int>::A_static_int);
   return 0;
 }

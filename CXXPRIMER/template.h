@@ -8,6 +8,9 @@
  * @copyright Copyright (c) 2022
  */
 
+#ifndef __TEMPLATE_H
+#define __TEMPLATE_H
+
 #include <vector>
 
 template <typename T, typename VT = std::vector<T>>
@@ -24,3 +27,5 @@ class A {
 template <typename T, typename VT>
 template <typename It>
 void A<T, VT>::test(const It& a) {}
+
+#endif  // __TEMPLATE_H
