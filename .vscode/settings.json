@@ -2,6 +2,14 @@
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.detectIndentation": false,
+  "editor.formatOnSave": true,
+  "C_Cpp.clang_format_style": "Google",
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[c]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+  },
   "files.associations": {
     "__threading_support": "c",
     "cerrno": "c",
@@ -91,14 +99,7 @@
     "numbers": "cpp",
     "semaphore": "cpp",
     "stop_token": "cpp",
-    "*.tpp": "cpp"
-  },
-  "editor.formatOnSave": true,
-  "C_Cpp.clang_format_style": "Google",
-  "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
-  },
-  "[c]": {
-    "editor.defaultFormatter": "ms-vscode.cpptools"
+    "*.tpp": "cpp",
+    "iomanip": "cpp"
   },
 }
