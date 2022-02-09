@@ -1,5 +1,4 @@
-all:
-
+.PHONY : clean
 
 clean:
 	-find ./ -name "*.o" -exec rm -rf {} \;

@@ -1,27 +1,15 @@
+.PHONY : clean
 
-CXXFLAGS = -std=c++11 -Wall -D DEBUG=true
-CFLAGS = -g
+CXXFLAGS = -std=c++11 -Wall -D DEBUG=true -g
 CXX = g++
 
 TARGET = main.out
+OBJ = main.o c1.o c0.o
 
-all:
-	make clean
-	make c1.o
-	make c0.o
-	make main.o
-	$(CXX) -o $(TARGET) main.o c1.o c0.o $(CXXFLAGS) $(CFLAGS)
-
-main.o:
-	$(CXX) -c main.cpp $(CFLAGS) $(CXXFLAGS)
-
-c1.o:
-	$(CXX) -c c1.cpp $(CFLAGS) $(CXXFLAGS)
-
-c0.o:
-	$(CXX) -c c0.cpp $(CFLAGS) $(CXXFLAGS)
+$(TARGET): $(OBJ) class.h
+	$(CXX) -o $(TARGET) $(OBJ) $(CXXFLAGS)
 
 clean:
-	-rm -rf *.o
+	-rm -rf $(OBJ)
 	-rm -rf $(TARGET)
 	-rm -rf *.dSYM
