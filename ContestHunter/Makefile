@@ -17,6 +17,7 @@ $(OBJ): $(BUILDDIR)/%.o : %.cpp
 
 .PHONY : run
 run:
+	@make clean
 	@echo ---$(shell date)--- > output
 	@./$(TARGET) <input >output 2>&1
 
