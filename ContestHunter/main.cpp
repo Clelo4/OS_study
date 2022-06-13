@@ -4,6 +4,8 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <list>
+#include <cassert>
 
 #define MAX 201
 #define MOD 998244353
@@ -13,7 +15,7 @@
 #define fi first
 #define se second
 #define mapa make_pair
-using T = long int;
+using T = int;
 #define pii pair<T, T>
 
 using LI = long int;
@@ -37,5 +39,7 @@ int main() {
   clock_t end = clock();
   printf("Time: %fms\n", double(end - start) / CLOCKS_PER_SEC * 1000);
 #endif
+
+  fflush(stdout);
   return 0;
 }

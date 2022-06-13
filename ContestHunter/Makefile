@@ -18,10 +18,12 @@ $(OBJ): $(BUILDDIR)/%.o : %.cpp
 .PHONY : run
 run:
 	@echo ---$(shell date)--- > output
-	@./$(TARGET) <input >output 2>&1
+	@./$(TARGET) <input >output 
+# 2>&1
 
 clean:
 	-rm -rf *.out
 	-rm -rf *.o
 	-rm -rf $(TARGET)
+	-rm -rf $(OBJ)
 	-rm -rf *.dSYM
